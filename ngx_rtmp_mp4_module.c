@@ -1375,7 +1375,9 @@ ngx_rtmp_mp4_seek_time(ngx_rtmp_session_t *s, ngx_rtmp_mp4_track_t *t,
 
         if (cr->timestamp + dt >= timestamp) {
             if (te->sample_delta == 0) {
-                return NGX_ERROR;
+                //return NGX_ERROR;
+                // 2024/03/15 Relax restrictions and allow multiple frames with the same dts timestamp
+                break;
             }
 
             cr->time_count = (timestamp - cr->timestamp) /
@@ -2393,6 +2395,22 @@ ngx_rtmp_mp4_init(ngx_rtmp_session_t *s, ngx_file_t *f, ngx_int_t aindex,
     size   -= shift;
     offset += shift;
 
+#if (NGX_WIN32)
+    ctx->mmaped_size = size;
+
+    // 2024/03/13 Both offset and size are set to 0 to map the entire file into memory.
+    ctx->mmaped = ngx_rtmp_mp4_mmap(f->fd, 0, 0, &ctx->extra);
+    if (ctx->mmaped == NULL) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, ngx_errno,
+                      "mp4: mmap failed at offset=%ui, size=%uz",
+                      offset, size);
+        return NGX_ERROR;
+    }
+
+    // 2024/03/13 Use offsets to access specific parts of files
+    return ngx_rtmp_mp4_parse(s, (u_char*)ctx->mmaped + offset,
+        (u_char*)ctx->mmaped + offset + ctx->mmaped_size);
+#else
     page_offset = offset & (ngx_pagesize - 1);
     ctx->mmaped_size = page_offset + size;
 
@@ -2407,6 +2425,7 @@ ngx_rtmp_mp4_init(ngx_rtmp_session_t *s, ngx_file_t *f, ngx_int_t aindex,
 
     return ngx_rtmp_mp4_parse(s, (u_char *) ctx->mmaped + page_offset,
                                  (u_char *) ctx->mmaped + page_offset + size);
+#endif
 }
 
 
