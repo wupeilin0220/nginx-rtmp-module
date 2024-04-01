@@ -1337,7 +1337,8 @@ ngx_rtmp_mp4_next_time(ngx_rtmp_session_t *s, ngx_rtmp_mp4_track_t *t)
     * 如果源delta太小，转换成{1,1000}可能是0，VLC等播放器播放会有问题（表现：首屏显示等待10s左右）。
     * 解决：所以判断此情况，把rtmp header的时间戳加1ms。
     */
-    if (((cr->timestamp - cr->last_timestamp) * 1000 / t->time_scale) <= 0)
+    int scaled_timestamp_diff = (cr->timestamp - cr->last_timestamp) * 1000 / t->time_scale;
+    if (scaled_timestamp_diff <= 0)
     {
         cr->timestamp += (t->time_scale / 1000);
     }
