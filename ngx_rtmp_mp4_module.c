@@ -1,4 +1,4 @@
-
+﻿
 /*
  * Copyright (C) Roman Arutyunyan
  */
@@ -1331,6 +1331,16 @@ ngx_rtmp_mp4_next_time(ngx_rtmp_session_t *s, ngx_rtmp_mp4_track_t *t)
 
     cr->last_timestamp = cr->timestamp;
     cr->timestamp += ngx_rtmp_r32(te->sample_delta);
+    /*
+    * 2024/04/01 愚人节快乐。
+    * 兼容不标准的mp4文件（时间戳不均匀）。因为 flv 的时间基是{1, 1000}，会做时间基转换从源mp4时间基转换成flv的时间基，
+    * 如果源delta太小，转换成{1,1000}可能是0，VLC等播放器播放会有问题（表现：首屏显示等待10s左右）。
+    * 解决：所以判断此情况，把rtmp header的时间戳加1ms。
+    */
+    if (((cr->timestamp - cr->last_timestamp) * 1000 / t->time_scale) <= 0)
+    {
+        cr->timestamp += (t->time_scale / 1000);
+    }
 
     cr->not_first = 1;
 
